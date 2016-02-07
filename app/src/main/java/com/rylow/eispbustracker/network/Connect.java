@@ -75,17 +75,9 @@ public class Connect implements Runnable {
             outLocation.put("locationX", locationX);
             outLocation.put("locationY", locationY);
 
-            Log.v("aa", locationX);
-
-            Log.v("aa", outLocation.toString());
-
-
-
             String s = TwoFish.encrypt(outLocation.toString(), sessionKey);
 
-            Log.v("aa", String.valueOf(s.length()));
-
-            Log.v("aa", s);
+            s = s.replaceAll("(\\r|\\n)", "");
 
             os.write(s);
             os.newLine();
