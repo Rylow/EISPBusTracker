@@ -28,7 +28,6 @@ public class MainActivity extends AppCompatActivity {
     private LocationListener locationListener;
     private TextView tView1;
 
-    private Connect connect = new Connect();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,8 +45,7 @@ public class MainActivity extends AppCompatActivity {
                 //        .setAction("Action", null).show();
 
                 configureLocation();
-                Thread connectThread = new Thread(connect);
-                connectThread.start();
+
             }
         });
 
@@ -56,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onLocationChanged(Location location) {
 
-                connect.sendLocationData(String.valueOf(location.getLatitude()), String.valueOf(location.getLongitude()));
+               // connect.sendLocationData(String.valueOf(location.getLatitude()), String.valueOf(location.getLongitude()));
 
 
             }
