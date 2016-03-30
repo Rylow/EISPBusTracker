@@ -12,13 +12,15 @@ import android.widget.Toast;
 
 import com.rylow.eispbustracker.network.Connect;
 
+import java.io.Serializable;
+
 /**
  * Created by s.bakhti on 30.3.2016.
  */
-public class LoginActivity extends AppCompatActivity {
+public class LoginActivity extends AppCompatActivity implements Serializable {
 
 
-    private Connect connect;
+
     private String username, password;
 
     @Override
@@ -39,7 +41,7 @@ public class LoginActivity extends AppCompatActivity {
                         password = textPassword.getText().toString();
 
 
-                        connect = new Connect(username, password, LoginActivity.this);
+                        Connect connect = new Connect(username, password, LoginActivity.this);
 
                         Thread connectThread = new Thread(connect);
                         connectThread.start();

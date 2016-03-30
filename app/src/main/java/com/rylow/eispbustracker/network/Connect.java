@@ -7,6 +7,7 @@ import android.widget.Toast;
 
 import com.rylow.eispbustracker.LoginActivity;
 import com.rylow.eispbustracker.MainActivity;
+import com.rylow.eispbustracker.R;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -26,9 +27,6 @@ import java.security.InvalidKeyException;
 
 public class Connect implements Runnable, Serializable {
 
-    Socket clientSocket = new Socket();
-    BufferedReader inFromServer;
-    BufferedWriter outToServer;
     String sessionKey, username, password;
     LoginActivity loginActivity;
 
@@ -44,11 +42,15 @@ public class Connect implements Runnable, Serializable {
     public void run(){
 
         try {
+            Socket clientSocket = new Socket();
 
-            clientSocket.connect(new InetSocketAddress("172.25.0.88", 6789), 1000);
+            clientSocket.connect(new InetSocketAddress("193.85.228.2", 6788), 1000);
 
-            this.inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            this.outToServer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+            BufferedReader inFromServer;
+            BufferedWriter outToServer;
+
+            inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            outToServer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 
 
             try {
@@ -65,16 +67,11 @@ public class Connect implements Runnable, Serializable {
 
                 String authreply = inFromServer.readLine();
 
-                Log.v("aaa", authreply);
-
                 authreply = TwoFish.decrypt(inFromServer.readLine(), sessionKey).trim();
-
-                Log.v("aaa", authreply);
-                Log.v("aaa", "test");
 
                 json = new JSONObject(authreply);
 
-                auth(json);
+                auth(json, clientSocket, inFromServer);
 
 
 
@@ -93,7 +90,7 @@ public class Connect implements Runnable, Serializable {
 
     }
 
-    public void auth(JSONObject replyJson) throws JSONException, IOException {
+    public void auth(JSONObject replyJson, final Socket clientSocket, BufferedReader inFromServer) throws JSONException, IOException {
 
         if (replyJson.getInt("code") == TransmissionCodes.USER_LOGIN_REPLY_SUCCESS) {
 
@@ -110,13 +107,23 @@ public class Connect implements Runnable, Serializable {
         else{
             if (replyJson.getInt("code") == TransmissionCodes.USER_LOGIN_REPLY_FAIL) {
 
-                Context context = loginActivity.getApplicationContext();
-                CharSequence message = "Login Failed";
-                int duration = Toast.LENGTH_SHORT;
+                final Context context = loginActivity.getApplicationContext();
+                final CharSequence message = "Login Failed";
+                final int duration = Toast.LENGTH_SHORT;
 
-                Toast toast = Toast.makeText(context, message, duration);
-                toast.show();
+                loginActivity.runOnUiThread(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        Toast toast = Toast.makeText(context, message, duration);
+                        toast.show();
+                    }
+                });
+
+
+
                 clientSocket.close();
+
             }
             else{
 
@@ -135,7 +142,7 @@ public class Connect implements Runnable, Serializable {
 
     }
 
-    public void sendLocationData(String locationX, String locationY){
+   /* public void sendLocationData(String locationX, String locationY){
 
         JSONObject outLocation = new JSONObject();
 
@@ -163,7 +170,7 @@ public class Connect implements Runnable, Serializable {
         }
 
 
-    }
+    }*/
 
 
 }
