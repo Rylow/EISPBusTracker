@@ -1,24 +1,19 @@
 package com.rylow.eispbustracker;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
+import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
-import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.AdapterView.OnItemClickListener;
 
 import com.rylow.eispbustracker.network.Connect;
-import com.rylow.eispbustracker.network.ConnecterAsyncTask;
 import com.rylow.eispbustracker.network.TransmissionCodes;
 import com.rylow.eispbustracker.network.TwoFish;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -31,29 +26,27 @@ import java.security.InvalidKeyException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import android.view.View;
 
 /**
- * Created by bakht on 30.03.2016.
+ * Created by bakht on 31.03.2016.
  */
-public class LineSelectionActivity extends AppCompatActivity {
+public class RideSelectionActivity extends AppCompatActivity {
 
-    public class Line{
+    private class Ride{
 
-        private String name;
         private int id;
+        private String direction;
+        private String date;
 
-        public Line(int id, String name) {
-            this.name = name;
+        public Ride(int id, String direction, String date) {
             this.id = id;
+            this.direction = direction;
+            this.date = date;
         }
 
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
+        @Override
+        public String toString(){
+            return direction + " at " + date;
         }
 
         public int getId() {
@@ -64,29 +57,41 @@ public class LineSelectionActivity extends AppCompatActivity {
             this.id = id;
         }
 
-        @Override
-        public String toString(){
-            return name;
+        public String getDirection() {
+            return direction;
+        }
+
+        public void setDirection(String direction) {
+            this.direction = direction;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
         }
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_lineselection);
+        setContentView(R.layout.activity_rideselection);
+        ListView rideListView = (ListView) findViewById(R.id.rideListView);
 
-        ListView lineListView = (ListView) findViewById(R.id.lineListView);
+        Intent intent = getIntent();
+        final int rideid = intent.getIntExtra("rideid", 0);
 
-        List<Line> lineList = new ArrayList<>();
+        List<Ride> rideList = new ArrayList<>();
 
-
-        AsyncTask query = new AsyncTask<Integer, Void, List<Line>>(){
+        AsyncTask query = new AsyncTask<Integer, Void, List<Ride>>(){
 
             @Override
-            protected List<Line> doInBackground(Integer... params) {
+            protected List<Ride> doInBackground(Integer... params) {
 
                 Connect connect = Connect.getInstance();
-                List<Line> lineList = new ArrayList<>();
+                List<Ride> rideList = new ArrayList<>();
 
                 if (connect.getClientSocket().isClosed()){
 
@@ -101,7 +106,8 @@ public class LineSelectionActivity extends AppCompatActivity {
 
                     JSONObject json = new JSONObject();
 
-                    json.put("code", TransmissionCodes.REQUEST_LINE_LIST);
+                    json.put("code", TransmissionCodes.REQUEST_RIDE_LIST);
+                    json.put("rideid", rideid);
 
                     outToServer.write(TwoFish.encrypt(json.toString(), connect.getSessionKey()));
                     outToServer.newLine();
@@ -113,16 +119,17 @@ public class LineSelectionActivity extends AppCompatActivity {
 
                     JSONObject recievedJSON = new JSONObject(incString);
 
-                    if(recievedJSON.getInt("code") == TransmissionCodes.RESPONSE_LINE_LIST){
+                    if(recievedJSON.getInt("code") == TransmissionCodes.RESPONCE_RIDE_LIST){
 
                         for (int i = 0; i < recievedJSON.getJSONArray("array").length(); i++){
 
                             JSONObject tempJson = recievedJSON.getJSONArray("array").getJSONObject(i);
 
-                            lineList.add(new Line(tempJson.getInt("id"), tempJson.getString("name")));
+                            rideList.add(new Ride(tempJson.getInt("id"), tempJson.getString("direction"), tempJson.getString("date")));
 
                         }
                     }
+
 
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -132,38 +139,37 @@ public class LineSelectionActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
 
-                return lineList;
+                return rideList;
             }
         }.execute();
 
         try {
-            lineList = (List<Line>) query.get();
+            rideList = (List<Ride>) query.get();
+
+            ArrayAdapter<Ride> adapter = new ArrayAdapter<Ride>(this,
+                    R.layout.line_list_view_text,rideList);
+
+            rideListView.setAdapter(adapter);
+            rideListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                public void onItemClick(AdapterView<?> parent, View view,
+                                        int position, long id) {
+
+                    Ride value = (Ride) parent.getItemAtPosition(position);
+
+                    Toast.makeText(getApplicationContext(),
+                            value.getDate(), Toast.LENGTH_SHORT).show();
+                }
+            });
+
+
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (ExecutionException e) {
             e.printStackTrace();
         }
 
-        ArrayAdapter<Line> adapter = new ArrayAdapter<Line>(this,
-                R.layout.line_list_view_text,lineList);
-
-        lineListView.setAdapter(adapter);
-        lineListView.setOnItemClickListener(new OnItemClickListener() {
-            public void onItemClick(AdapterView<?> parent, View view,
-                                    int position, long id) {
-
-                Line value = (Line) parent.getItemAtPosition(position);
-
-                Intent intent = new Intent(LineSelectionActivity.this, RideSelectionActivity.class);
-
-                intent.putExtra("rideid", value.getId());
-
-                startActivity(intent);
-                finish();
-            }
-        });
-
 
 
     }
+
 }

@@ -10,6 +10,8 @@ public class TransmissionCodes {
     public static final int USER_LOGIN_REPLY_FAIL = 103;
     public static final int REQUEST_LINE_LIST = 104;
     public static final int RESPONSE_LINE_LIST = 105;
+    public static final int REQUEST_RIDE_LIST = 106;
+    public static final int RESPONCE_RIDE_LIST = 107;
 
 
 }

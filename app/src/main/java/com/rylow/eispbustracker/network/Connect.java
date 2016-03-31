@@ -51,9 +51,7 @@ public class Connect {
 
         try {
             clientSocket = new Socket();
-            clientSocket.connect(new InetSocketAddress("172.25.0.88", 6789), 1000);
-
-            Log.v("aaa", "conect");
+            clientSocket.connect(new InetSocketAddress("193.85.228.2", 6788), 1000);
 
             inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             outToServer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
