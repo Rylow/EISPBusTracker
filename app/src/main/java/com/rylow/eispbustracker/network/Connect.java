@@ -2,13 +2,14 @@ package com.rylow.eispbustracker.network;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.rylow.eispbustracker.LineSelectionActivity;
 import com.rylow.eispbustracker.LoginActivity;
-import com.rylow.eispbustracker.MainActivity;
-import com.rylow.eispbustracker.R;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -17,132 +18,143 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
 
 
-public class Connect implements Runnable, Serializable {
+public class Connect {
 
-    String sessionKey, username, password;
-    LoginActivity loginActivity;
+    private String sessionKey, username, password;
+    private static Connect connect;
+    private Socket clientSocket = new Socket();
 
-    public Connect (String username, String password, LoginActivity loginActivity){
+    private BufferedReader inFromServer;
+    private BufferedWriter outToServer;
 
-        this.username = username;
-        this.password = password;
-        this.loginActivity = loginActivity;
+
+    private Connect (){
 
     }
 
-    @Override
-    public void run(){
+    public static Connect getInstance(){
+
+        if(connect == null)
+            connect = new Connect();
+
+
+        return connect;
+    }
+
+    public void connect(){
 
         try {
-            Socket clientSocket = new Socket();
+            clientSocket = new Socket();
+            clientSocket.connect(new InetSocketAddress("172.25.0.88", 6789), 1000);
 
-            clientSocket.connect(new InetSocketAddress("193.85.228.2", 6788), 1000);
-
-            BufferedReader inFromServer;
-            BufferedWriter outToServer;
+            Log.v("aaa", "conect");
 
             inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             outToServer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 
+            this.sessionKey = TwoFish.decrypt(inFromServer.readLine(), "VeryC0oLVeryC0oL").trim();
 
-            try {
-                this.sessionKey = TwoFish.decrypt(inFromServer.readLine(), "VeryC0oLVeryC0oL").trim();
-
-                JSONObject json = new JSONObject();
-                json.put("code", TransmissionCodes.USER_LOGIN);
-                json.put("username", username);
-                json.put("password", password);
-
-                outToServer.write(TwoFish.encrypt(json.toString(), sessionKey));
-                outToServer.newLine();
-                outToServer.flush();
-
-                String authreply = inFromServer.readLine();
-
-                authreply = TwoFish.decrypt(inFromServer.readLine(), sessionKey).trim();
-
-                json = new JSONObject(authreply);
-
-                auth(json, clientSocket, inFromServer);
-
-
-
-            } catch (GeneralSecurityException e) {
-                e.printStackTrace();
-            }
-
-
-
-            //os.close();
-        }
-        catch(IOException|JSONException e){
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
             e.printStackTrace();
         }
 
 
     }
 
-    public void auth(JSONObject replyJson, final Socket clientSocket, BufferedReader inFromServer) throws JSONException, IOException {
+    public Boolean auth() {
 
-        if (replyJson.getInt("code") == TransmissionCodes.USER_LOGIN_REPLY_SUCCESS) {
+        JSONObject json = new JSONObject();
+        try {
 
-            Intent intent = new Intent(loginActivity, MainActivity.class);
+            inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            outToServer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 
-            intent.putExtra("connectReference", this);
+            json.put("code", TransmissionCodes.USER_LOGIN);
+            json.put("username", username);
+            json.put("password", password);
 
-            Thread reciever = new Thread(new Reciever(inFromServer, sessionKey));
-            reciever.start();
+            outToServer.write(TwoFish.encrypt(json.toString(), sessionKey));
+            outToServer.newLine();
+            outToServer.flush();
 
-            loginActivity.startActivity(intent);
-            loginActivity.finish();
-        }
-        else{
-            if (replyJson.getInt("code") == TransmissionCodes.USER_LOGIN_REPLY_FAIL) {
+            String authreply = inFromServer.readLine();
 
-                final Context context = loginActivity.getApplicationContext();
-                final CharSequence message = "Login Failed";
-                final int duration = Toast.LENGTH_SHORT;
+            authreply = TwoFish.decrypt(authreply, sessionKey).trim();
 
-                loginActivity.runOnUiThread(new Runnable() {
+            json = new JSONObject(authreply);
 
-                    @Override
-                    public void run() {
-                        Toast toast = Toast.makeText(context, message, duration);
-                        toast.show();
-                    }
-                });
+            if (json.getInt("code") == TransmissionCodes.USER_LOGIN_REPLY_SUCCESS) {
 
 
-
-                clientSocket.close();
+                return true;
 
             }
             else{
+                if (json.getInt("code") == TransmissionCodes.USER_LOGIN_REPLY_FAIL) {
 
-                Context context = loginActivity.getApplicationContext();
-                CharSequence message = "Server Error";
-                int duration = Toast.LENGTH_SHORT;
+                    clientSocket.close();
 
-                Toast toast = Toast.makeText(context, message, duration);
-                toast.show();
-                clientSocket.close();
+                    return false;
 
+                }
+                else{
+
+
+                    clientSocket.close();
+                    return false;
+                }
             }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
-
-
+        return false;
     }
 
-   /* public void sendLocationData(String locationX, String locationY){
+
+    public String getSessionKey() {
+        return sessionKey;
+    }
+
+    public void setSessionKey(String sessionKey) {
+        this.sessionKey = sessionKey;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public Socket getClientSocket() {
+        return clientSocket;
+    }
+
+    /* public void sendLocationData(String locationX, String locationY){
 
         JSONObject outLocation = new JSONObject();
 

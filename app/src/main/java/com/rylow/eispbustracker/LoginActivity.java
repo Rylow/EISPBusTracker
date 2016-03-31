@@ -11,8 +11,10 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.rylow.eispbustracker.network.Connect;
+import com.rylow.eispbustracker.network.ConnecterAsyncTask;
 
 import java.io.Serializable;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Created by s.bakhti on 30.3.2016.
@@ -41,10 +43,45 @@ public class LoginActivity extends AppCompatActivity implements Serializable {
                         password = textPassword.getText().toString();
 
 
-                        Connect connect = new Connect(username, password, LoginActivity.this);
+                        Connect connect = Connect.getInstance();
+                        connect.setPassword(password);
+                        connect.setUsername(username);
 
-                        Thread connectThread = new Thread(connect);
-                        connectThread.start();
+                        ConnecterAsyncTask connecter = new ConnecterAsyncTask();
+                        connecter.execute(0);
+
+                        try {
+                            if (connecter.get()){
+
+                                Intent intent = new Intent(LoginActivity.this, LineSelectionActivity.class);
+
+                                startActivity(intent);
+                                finish();
+
+
+                            }
+
+                            else{
+
+                                final Context context = getApplicationContext();
+                                final CharSequence message = "Login Failed";
+                                final int duration = Toast.LENGTH_SHORT;
+
+                                runOnUiThread(new Runnable() {
+
+                                    @Override
+                                    public void run() {
+                                        Toast toast = Toast.makeText(context, message, duration);
+                                        toast.show();
+                                    }
+                                });
+
+                            }
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        } catch (ExecutionException e) {
+                            e.printStackTrace();
+                        }
 
                         break;
                     }

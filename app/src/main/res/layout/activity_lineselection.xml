@@ -18,10 +18,29 @@
         android:id="@+id/labelLine"
         android:layout_gravity="center_horizontal"
         android:singleLine="true"
-        android:textSize="30dp" />
+        android:textSize="40dp" />
 
     <TableLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"></TableLayout>
+
+
+
+
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical">
+
+        <ListView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/lineListView"
+            android:layout_gravity="center_horizontal"
+            />
+
+    </LinearLayout>
 </LinearLayout>
