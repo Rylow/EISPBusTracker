@@ -81,7 +81,7 @@ public class RideSelectionActivity extends AppCompatActivity {
         ListView rideListView = (ListView) findViewById(R.id.rideListView);
 
         Intent intent = getIntent();
-        final int rideid = intent.getIntExtra("rideid", 0);
+        final int lineid = intent.getIntExtra("lineid", 0);
 
         List<Ride> rideList = new ArrayList<>();
 
@@ -107,7 +107,7 @@ public class RideSelectionActivity extends AppCompatActivity {
                     JSONObject json = new JSONObject();
 
                     json.put("code", TransmissionCodes.REQUEST_RIDE_LIST);
-                    json.put("rideid", rideid);
+                    json.put("lineid", lineid);
 
                     outToServer.write(TwoFish.encrypt(json.toString(), connect.getSessionKey()));
                     outToServer.newLine();
@@ -156,8 +156,15 @@ public class RideSelectionActivity extends AppCompatActivity {
 
                     Ride value = (Ride) parent.getItemAtPosition(position);
 
-                    Toast.makeText(getApplicationContext(),
-                            value.getDate(), Toast.LENGTH_SHORT).show();
+                    Intent intent = new Intent(RideSelectionActivity.this, RideDetailsActivity.class);
+
+                    intent.putExtra("rideid", value.getId());
+                    intent.putExtra("lineid", lineid);
+
+                    setContentView(R.layout.loading_ride_details);
+
+                    startActivity(intent);
+                    finish();
                 }
             });
 
@@ -169,6 +176,16 @@ public class RideSelectionActivity extends AppCompatActivity {
         }
 
 
+
+    }
+
+    @Override
+    public void onBackPressed() {
+
+        Intent intent = new Intent(RideSelectionActivity.this, LineSelectionActivity.class);
+
+        startActivity(intent);
+        finish();
 
     }
 

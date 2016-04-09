@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="10dp">
+    <ImageView
+        android:id="@+id/imgPhoto"
+        android:layout_width="130dp"
+        android:layout_height="130dp"
+        android:src="@drawable/no_photo" />
+    <TextView
+        android:id="@+id/txtName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="FullName"
+        android:textSize="30dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignStart="@+id/txtStop" />
+
+    <TextView
+        android:id="@+id/txtStop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Bus Stop"
+        android:layout_marginStart="15dp"
+        android:textSize="20dp"
+        android:layout_alignBottom="@+id/imgPhoto"
+        android:layout_toEndOf="@+id/imgPhoto" />
+</RelativeLayout>

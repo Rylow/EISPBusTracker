@@ -79,7 +79,11 @@ public class Connect {
             json.put("username", username);
             json.put("password", password);
 
-            outToServer.write(TwoFish.encrypt(json.toString(), sessionKey));
+            String send = TwoFish.encrypt(json.toString(), sessionKey);
+
+            send = send.replaceAll("(\\r|\\n)", "");
+
+            outToServer.write(send);
             outToServer.newLine();
             outToServer.flush();
 

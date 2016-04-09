@@ -156,7 +156,7 @@ public class LineSelectionActivity extends AppCompatActivity {
 
                 Intent intent = new Intent(LineSelectionActivity.this, RideSelectionActivity.class);
 
-                intent.putExtra("rideid", value.getId());
+                intent.putExtra("lineid", value.getId());
 
                 startActivity(intent);
                 finish();
