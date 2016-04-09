@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center">
+
+    <ImageView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/imgStudentProfile"
+        android:src="@drawable/no_photo"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:minWidth="300px"
+        android:minHeight="300px" />
+
+    <TableLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="Student Name"
+            android:id="@+id/lblStudentName"
+            android:layout_below="@+id/imgStudentProfile"
+            android:layout_centerHorizontal="true"
+            android:textSize="30dp"
+            android:gravity="center" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="First Contact"
+            android:id="@+id/lblFirstContactName"
+            android:layout_below="@+id/lblStudentName"
+            android:layout_alignStart="@+id/imgStudentProfile"
+            android:layout_marginTop="56dp"
+            android:gravity="center" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="777 666 222"
+            android:id="@+id/lblFirstContactPhone"
+            android:autoLink="phone"
+            android:linksClickable="true"
+            android:layout_alignTop="@+id/lblFirstContactName"
+            android:layout_alignStart="@+id/lblSecondContactPhone"
+            android:gravity="center" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="Second Contact"
+            android:id="@+id/lblSecondContactName"
+            android:layout_below="@+id/lblFirstContactName"
+            android:layout_alignStart="@+id/lblFirstContactName"
+            android:layout_marginTop="36dp"
+            android:gravity="center" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="777 666 222"
+            android:id="@+id/lblSecondContactPhone"
+            android:autoLink="phone"
+            android:linksClickable="true"
+            android:layout_alignTop="@+id/lblSecondContactName"
+            android:layout_alignEnd="@+id/imgStudentProfile"
+            android:gravity="center" />
+
+
+
+
+
+    </TableLayout>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="OK"
+        android:id="@+id/bntOK"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        style="@android:style/Holo.Light.ButtonBar"
+        android:layout_marginTop="40px"
+        android:textSize="15dp" />
+
+
+</LinearLayout>

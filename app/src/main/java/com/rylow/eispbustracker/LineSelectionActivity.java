@@ -1,9 +1,12 @@
 package com.rylow.eispbustracker;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.widget.AdapterView;
@@ -37,6 +40,8 @@ import android.view.View;
  * Created by bakht on 30.03.2016.
  */
 public class LineSelectionActivity extends AppCompatActivity {
+
+    private ListView lineListView;
 
     public class Line{
 
@@ -75,10 +80,26 @@ public class LineSelectionActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_lineselection);
 
-        ListView lineListView = (ListView) findViewById(R.id.lineListView);
+        lineListView = (ListView) findViewById(R.id.lineListView);
+
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fabLine);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                doTheJob();
+            }
+        });
+
+
+        doTheJob();
+
+
+
+    }
+
+    private void doTheJob(){
 
         List<Line> lineList = new ArrayList<>();
-
 
         AsyncTask query = new AsyncTask<Integer, Void, List<Line>>(){
 
@@ -86,53 +107,29 @@ public class LineSelectionActivity extends AppCompatActivity {
             protected List<Line> doInBackground(Integer... params) {
 
                 Connect connect = Connect.getInstance();
-                List<Line> lineList = new ArrayList<>();
+
 
                 if (connect.getClientSocket().isClosed()){
 
-                    connect.connect();
-                    connect.auth();
+                    if (connect.connect()){
 
-                }
+                        return getLineList(connect);
 
-                try {
-                    BufferedWriter outToServer = new BufferedWriter(new OutputStreamWriter(connect.getClientSocket().getOutputStream()));
-                    BufferedReader inFromServer = new BufferedReader(new InputStreamReader(connect.getClientSocket().getInputStream()));
-
-                    JSONObject json = new JSONObject();
-
-                    json.put("code", TransmissionCodes.REQUEST_LINE_LIST);
-
-                    outToServer.write(TwoFish.encrypt(json.toString(), connect.getSessionKey()));
-                    outToServer.newLine();
-                    outToServer.flush();
-
-                    String incString = inFromServer.readLine();
-
-                    incString = TwoFish.decrypt(incString, connect.getSessionKey()).trim();
-
-                    JSONObject recievedJSON = new JSONObject(incString);
-
-                    if(recievedJSON.getInt("code") == TransmissionCodes.RESPONSE_LINE_LIST){
-
-                        for (int i = 0; i < recievedJSON.getJSONArray("array").length(); i++){
-
-                            JSONObject tempJson = recievedJSON.getJSONArray("array").getJSONObject(i);
-
-                            lineList.add(new Line(tempJson.getInt("id"), tempJson.getString("name")));
-
-                        }
                     }
+                    else {
 
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                } catch (InvalidKeyException e) {
-                    e.printStackTrace();
+                        showErrorMessage();
+
+                        return new ArrayList<>();
+
+
+                    }
                 }
+                else{
 
-                return lineList;
+                    return getLineList(connect);
+
+                }
             }
         }.execute();
 
@@ -164,6 +161,102 @@ public class LineSelectionActivity extends AppCompatActivity {
         });
 
 
+    }
+
+    private void showErrorMessage(){
+
+        runOnUiThread(new Runnable() {
+
+            @Override
+            public void run() {
+                AlertDialog alertDialog = new AlertDialog.Builder(LineSelectionActivity.this).create();
+                alertDialog.setTitle("Failure");
+                alertDialog.setMessage("Connection to the server is not available. Probably mobile connection is not available at this moment. Please again later.");
+                alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        });
+                alertDialog.show();
+            }
+        });
+
+    }
+
+    private List<Line> getLineList(Connect connect){
+
+        List<Line> lineList = new ArrayList<>();
+
+        try {
+            BufferedWriter outToServer = new BufferedWriter(new OutputStreamWriter(connect.getClientSocket().getOutputStream()));
+            BufferedReader inFromServer = new BufferedReader(new InputStreamReader(connect.getClientSocket().getInputStream()));
+
+            JSONObject json = new JSONObject();
+
+            json.put("code", TransmissionCodes.REQUEST_LINE_LIST);
+
+            outToServer.write(TwoFish.encrypt(json.toString(), connect.getSessionKey()));
+            outToServer.newLine();
+            outToServer.flush();
+
+            String incString = inFromServer.readLine();
+
+            if (incString != null) {
+                incString = TwoFish.decrypt(incString, connect.getSessionKey()).trim();
+            }
+            else {
+                incString = "";
+                showErrorMessage();
+                connect.getClientSocket().close();
+
+            }
+
+
+            JSONObject recievedJSON = new JSONObject(incString);
+
+            if(recievedJSON.getInt("code") == TransmissionCodes.RESPONSE_LINE_LIST){
+
+                for (int i = 0; i < recievedJSON.getJSONArray("array").length(); i++){
+
+                    JSONObject tempJson = recievedJSON.getJSONArray("array").getJSONObject(i);
+
+                    lineList.add(new Line(tempJson.getInt("id"), tempJson.getString("name")));
+
+                }
+            }
+
+        } catch (IOException e) {
+            showErrorMessage();
+            try {
+                connect.getClientSocket().close();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+            e.printStackTrace();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
+        }
+
+        return lineList;
+
+    }
+
+    @Override
+    public void onBackPressed() {
+
+        Intent intent = new Intent(LineSelectionActivity.this, LoginActivity.class);
+
+        try {
+            Connect.getInstance().getClientSocket().close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        startActivity(intent);
+        finish();
 
     }
 }

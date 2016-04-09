@@ -1,9 +1,13 @@
 package com.rylow.eispbustracker;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -32,11 +36,15 @@ import java.util.concurrent.ExecutionException;
  */
 public class RideSelectionActivity extends AppCompatActivity {
 
+    private int lineid;
+    private ListView rideListView;
+
     private class Ride{
 
         private int id;
         private String direction;
         private String date;
+
 
         public Ride(int id, String direction, String date) {
             this.id = id;
@@ -78,12 +86,38 @@ public class RideSelectionActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_rideselection);
-        ListView rideListView = (ListView) findViewById(R.id.rideListView);
+        rideListView = (ListView) findViewById(R.id.rideListView);
 
         Intent intent = getIntent();
-        final int lineid = intent.getIntExtra("lineid", 0);
+        lineid = intent.getIntExtra("lineid", 0);
 
-        List<Ride> rideList = new ArrayList<>();
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                doTheJob();
+            }
+        });
+
+
+        doTheJob();
+
+
+    }
+
+    @Override
+    public void onBackPressed() {
+
+        Intent intent = new Intent(RideSelectionActivity.this, LineSelectionActivity.class);
+
+        startActivity(intent);
+        finish();
+
+    }
+
+    private void doTheJob(){
+
+        List<Ride> rideList;
 
         AsyncTask query = new AsyncTask<Integer, Void, List<Ride>>(){
 
@@ -91,55 +125,44 @@ public class RideSelectionActivity extends AppCompatActivity {
             protected List<Ride> doInBackground(Integer... params) {
 
                 Connect connect = Connect.getInstance();
-                List<Ride> rideList = new ArrayList<>();
 
                 if (connect.getClientSocket().isClosed()){
 
-                    connect.connect();
-                    connect.auth();
+                    if (connect.connect()){
 
-                }
+                        return getRideList(connect);
 
-                try {
-                    BufferedWriter outToServer = new BufferedWriter(new OutputStreamWriter(connect.getClientSocket().getOutputStream()));
-                    BufferedReader inFromServer = new BufferedReader(new InputStreamReader(connect.getClientSocket().getInputStream()));
-
-                    JSONObject json = new JSONObject();
-
-                    json.put("code", TransmissionCodes.REQUEST_RIDE_LIST);
-                    json.put("lineid", lineid);
-
-                    outToServer.write(TwoFish.encrypt(json.toString(), connect.getSessionKey()));
-                    outToServer.newLine();
-                    outToServer.flush();
-
-                    String incString = inFromServer.readLine();
-
-                    incString = TwoFish.decrypt(incString, connect.getSessionKey()).trim();
-
-                    JSONObject recievedJSON = new JSONObject(incString);
-
-                    if(recievedJSON.getInt("code") == TransmissionCodes.RESPONCE_RIDE_LIST){
-
-                        for (int i = 0; i < recievedJSON.getJSONArray("array").length(); i++){
-
-                            JSONObject tempJson = recievedJSON.getJSONArray("array").getJSONObject(i);
-
-                            rideList.add(new Ride(tempJson.getInt("id"), tempJson.getString("direction"), tempJson.getString("date")));
-
-                        }
                     }
+                    else{
 
+                        runOnUiThread(new Runnable() {
 
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                } catch (InvalidKeyException e) {
-                    e.printStackTrace();
+                            @Override
+                            public void run() {
+                                AlertDialog alertDialog = new AlertDialog.Builder(RideSelectionActivity.this).create();
+                                alertDialog.setTitle("Failure");
+                                alertDialog.setMessage("Connection to the server is not available. Probably mobile connection is not available at this moment. Please again later.");
+                                alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                                        new DialogInterface.OnClickListener() {
+                                            public void onClick(DialogInterface dialog, int which) {
+                                                dialog.dismiss();
+                                            }
+                                        });
+                                alertDialog.show();
+                            }
+                        });
+
+                        return new ArrayList<>();
+
+                    }
+                }
+                else{
+
+                    return getRideList(connect);
+
                 }
 
-                return rideList;
+
             }
         }.execute();
 
@@ -175,17 +198,88 @@ public class RideSelectionActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
+    }
+
+    private List<Ride> getRideList(Connect connect){
+
+        List<Ride> rideList = new ArrayList<>();
+
+        try {
+            BufferedWriter outToServer = new BufferedWriter(new OutputStreamWriter(connect.getClientSocket().getOutputStream()));
+            BufferedReader inFromServer = new BufferedReader(new InputStreamReader(connect.getClientSocket().getInputStream()));
+
+            JSONObject json = new JSONObject();
+
+            json.put("code", TransmissionCodes.REQUEST_RIDE_LIST);
+            json.put("lineid", lineid);
+
+            outToServer.write(TwoFish.encrypt(json.toString(), connect.getSessionKey()));
+            outToServer.newLine();
+            outToServer.flush();
+
+            String incString = inFromServer.readLine();
+
+            if (incString != null) {
+                incString = TwoFish.decrypt(incString, connect.getSessionKey()).trim();
+            }
+            else {
+                incString = "";
+                showErrorDialog();
+                connect.getClientSocket().close();
+
+            }
+
+            JSONObject recievedJSON = new JSONObject(incString);
+
+            if(recievedJSON.getInt("code") == TransmissionCodes.RESPONCE_RIDE_LIST){
+
+                for (int i = 0; i < recievedJSON.getJSONArray("array").length(); i++){
+
+                    JSONObject tempJson = recievedJSON.getJSONArray("array").getJSONObject(i);
+
+                    rideList.add(new Ride(tempJson.getInt("id"), tempJson.getString("direction"), tempJson.getString("date")));
+
+                }
+            }
+
+
+        } catch (IOException e) {
+            showErrorDialog();
+            try {
+                connect.getClientSocket().close();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+            e.printStackTrace();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
+        }
+
+        return rideList;
 
 
     }
 
-    @Override
-    public void onBackPressed() {
+    private void showErrorDialog(){
 
-        Intent intent = new Intent(RideSelectionActivity.this, LineSelectionActivity.class);
+        runOnUiThread(new Runnable() {
 
-        startActivity(intent);
-        finish();
+            @Override
+            public void run() {
+                AlertDialog alertDialog = new AlertDialog.Builder(RideSelectionActivity.this).create();
+                alertDialog.setTitle("Failure");
+                alertDialog.setMessage("Connection to the server is not available. Probably mobile connection is not available at this moment. Please again later.");
+                alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        });
+                alertDialog.show();
+            }
+        });
 
     }
 

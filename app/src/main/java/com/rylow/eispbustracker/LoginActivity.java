@@ -64,7 +64,7 @@ public class LoginActivity extends AppCompatActivity implements Serializable {
                             else{
 
                                 final Context context = getApplicationContext();
-                                final CharSequence message = "Login Failed";
+                                final CharSequence message = "Login Failed. Either your password is incorrect or server is not available";
                                 final int duration = Toast.LENGTH_SHORT;
 
                                 runOnUiThread(new Runnable() {

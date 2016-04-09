@@ -47,7 +47,7 @@ public class Connect {
         return connect;
     }
 
-    public void connect(){
+    public Boolean connect(){
 
         try {
             clientSocket = new Socket();
@@ -58,13 +58,15 @@ public class Connect {
 
             this.sessionKey = TwoFish.decrypt(inFromServer.readLine(), "VeryC0oLVeryC0oL").trim();
 
+            return auth();
+
         } catch (IOException e) {
             e.printStackTrace();
         } catch (InvalidKeyException e) {
             e.printStackTrace();
         }
 
-
+        return false;
     }
 
     public Boolean auth() {

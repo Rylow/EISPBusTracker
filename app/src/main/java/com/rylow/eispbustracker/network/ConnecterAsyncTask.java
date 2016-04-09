@@ -20,8 +20,7 @@ public class ConnecterAsyncTask extends AsyncTask<Integer, Void, Boolean> {
 
         }
         else{
-            connect.connect();
-            return connect.auth();
+            return connect.connect();
         }
     }
 }

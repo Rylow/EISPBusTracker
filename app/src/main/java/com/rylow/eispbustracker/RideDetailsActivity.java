@@ -2,6 +2,7 @@ package com.rylow.eispbustracker;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -14,15 +15,14 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.telephony.PhoneNumberUtils;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CompoundButton;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.ToggleButton;
 
 import com.rylow.eispbustracker.network.Connect;
 import com.rylow.eispbustracker.network.TransmissionCodes;
@@ -46,47 +46,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-/**
- * Created by bakht on 30.03.2016.
- */
 public class RideDetailsActivity extends AppCompatActivity {
 
     private LocationManager locationManager;
     private LocationListener locationListener;
     private int lineid;
     private ArrayList<Student> listStudent = new ArrayList<>();
-
-    public class Line{
-
-        private String name;
-        private String id;
-
-        public Line(String id, String name) {
-            this.name = name;
-            this.id = id;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public String getId() {
-            return id;
-        }
-
-        public void setId(String id) {
-            this.id = id;
-        }
-
-        @Override
-        public String toString(){
-            return name;
-        }
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,82 +80,62 @@ public class RideDetailsActivity extends AppCompatActivity {
 
                         if (connect.getClientSocket().isClosed()){
 
-                            connect.connect();
-                            connect.auth();
+                            if (connect.connect()){
 
-                        }
-
-                        try {
-                            BufferedWriter outToServer = new BufferedWriter(new OutputStreamWriter(connect.getClientSocket().getOutputStream()));
-                            BufferedReader inFromServer = new BufferedReader(new InputStreamReader(connect.getClientSocket().getInputStream()));
-
-                            JSONObject json = new JSONObject();
-
-                            json.put("code", TransmissionCodes.RIDE_DETAILS_UPDATE);
-                            json.put("rideid", rideid);
-
-                            List<JSONObject> studentsToSend = new ArrayList<>();
-
-                            for (Student student : listStudent){
-
-                                JSONObject tempJSON = new JSONObject();
-                                tempJSON.put("ridesstudentid", student.getRidesStudentid());
-                                if(student.getSelected())
-                                    tempJSON.put("ridestatus", 0);
-                                else
-                                    tempJSON.put("ridestatus", 2);
-
-                                studentsToSend.add(tempJSON);
+                                return saveRideDetailsOnServer(connect, rideid);
 
                             }
 
-                            JSONArray array = new JSONArray(studentsToSend);
-
-                            json.put("array", array);
-
-                            String send = TwoFish.encrypt(json.toString(), connect.getSessionKey());
-                            send = send.replaceAll("(\\r|\\n)", "");
-
-                            outToServer.write(send);
-                            outToServer.newLine();
-                            outToServer.flush();
-
-                            String incString = inFromServer.readLine();
-
-                            incString = TwoFish.decrypt(incString, connect.getSessionKey()).trim();
-
-                            JSONObject recievedJSON = new JSONObject(incString);
-
-                            if(recievedJSON.getInt("code") == TransmissionCodes.RIDE_DETAILS_CONFIRMATION){
-
-                               return true;
-                            }
-
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        } catch (InvalidKeyException e) {
-                            e.printStackTrace();
+                            return false;
+                        }
+                        else{
+                            return saveRideDetailsOnServer(connect, rideid);
                         }
 
-                        return false;
                     }
                 }.execute();
 
                 try {
-                    if ((Boolean) querySave.get()){
+                    Boolean result = (Boolean) querySave.get();
 
-                        AlertDialog alertDialog = new AlertDialog.Builder(RideDetailsActivity.this).create();
-                        alertDialog.setTitle("Success");
-                        alertDialog.setMessage("Data for this ride has been successfully uploaded");
-                        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
-                                new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int which) {
-                                        dialog.dismiss();
-                                    }
-                                });
-                        alertDialog.show();
+                    if (result){
+
+                        runOnUiThread(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                AlertDialog alertDialog = new AlertDialog.Builder(RideDetailsActivity.this).create();
+                                alertDialog.setTitle("Success");
+                                alertDialog.setMessage("Data for this ride has been successfully uploaded");
+                                alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                                        new DialogInterface.OnClickListener() {
+                                            public void onClick(DialogInterface dialog, int which) {
+                                                dialog.dismiss();
+                                            }
+                                        });
+                                alertDialog.show();
+                            }
+                        });
+
+                    }
+                    else{
+
+                        runOnUiThread(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                AlertDialog alertDialog = new AlertDialog.Builder(RideDetailsActivity.this).create();
+                                alertDialog.setTitle("Failure");
+                                alertDialog.setMessage("Connection to the server is not available. Probably mobile connection is not available at this moment. Please again later.");
+                                alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                                        new DialogInterface.OnClickListener() {
+                                            public void onClick(DialogInterface dialog, int which) {
+                                                dialog.dismiss();
+                                            }
+                                        });
+                                alertDialog.show();
+                            }
+                        });
 
                     }
                 } catch (InterruptedException e) {
@@ -207,49 +152,33 @@ public class RideDetailsActivity extends AppCompatActivity {
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         locationListener = new LocationListener() {
             @Override
-            public void onLocationChanged(Location location) {
+            public void onLocationChanged(final Location location) {
 
-                JSONObject sendJson = new JSONObject();
-                JSONObject localtionJSON = new JSONObject();
-                Connect connect = Connect.getInstance();
+                AsyncTask query = new AsyncTask<Integer, Void, Void>(){
 
-                if (connect.getClientSocket().isClosed()){
+                    @Override
+                    protected Void doInBackground(Integer... params) {
 
-                    connect.connect();
-                    connect.auth();
-
-                }
-
-                try {
-
-                    BufferedWriter outToServer = new BufferedWriter(new OutputStreamWriter(connect.getClientSocket().getOutputStream()));
+                        Connect connect = Connect.getInstance();
 
 
+                        if (connect.getClientSocket().isClosed()){
 
-                    sendJson.put("code", TransmissionCodes.GPS_UPDATE);
-                    localtionJSON.put("gpsx", String.valueOf(location.getLatitude()));
-                    localtionJSON.put("gpsy", String.valueOf(location.getLongitude()));
-                    localtionJSON.put("rideid", rideid);
-                    sendJson.put("location", localtionJSON);
+                            if(connect.connect()){
 
-                    String send = TwoFish.encrypt(sendJson.toString(), connect.getSessionKey());
-                    send = send.replaceAll("(\\r|\\n)", "");
+                                sendLocationToServer(connect, location, rideid);
 
-                    outToServer.write(send);
-                    outToServer.newLine();
-                    outToServer.flush();
+                            }
+                        }
+                        else{
 
+                            sendLocationToServer(connect, location,rideid);
+                        }
 
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                } catch (InvalidKeyException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                        return null;
 
+                    }
+                }.execute();
             }
 
             @Override
@@ -280,62 +209,25 @@ public class RideDetailsActivity extends AppCompatActivity {
             protected List<Student> doInBackground(Integer... params) {
 
                 Connect connect = Connect.getInstance();
-                List<Student> studentsList = new ArrayList<>();
+
 
                 if (connect.getClientSocket().isClosed()){
 
-                    connect.connect();
-                    connect.auth();
+                    if (connect.connect()){
 
-                }
+                        return getStudentList(connect, rideid);
 
-                try {
-                    BufferedWriter outToServer = new BufferedWriter(new OutputStreamWriter(connect.getClientSocket().getOutputStream()));
-                    BufferedReader inFromServer = new BufferedReader(new InputStreamReader(connect.getClientSocket().getInputStream()));
-
-                    JSONObject json = new JSONObject();
-
-                    json.put("code", TransmissionCodes.REQUEST_RIDE_DETAILS);
-                    json.put("rideid", rideid);
-
-                    String send = TwoFish.encrypt(json.toString(), connect.getSessionKey());
-                    send = send.replaceAll("(\\r|\\n)", "");
-
-                    outToServer.write(send);
-                    outToServer.newLine();
-                    outToServer.flush();
-
-                    String incString = inFromServer.readLine();
-
-                    incString = TwoFish.decrypt(incString, connect.getSessionKey()).trim();
-
-                    JSONObject recievedJSON = new JSONObject(incString);
-
-                    if(recievedJSON.getInt("code") == TransmissionCodes.RESPONCE_RIDE_DETAILS){
-
-                        for (int i = 0; i < recievedJSON.getJSONArray("array").length(); i++){
-
-                            JSONObject studentJson = recievedJSON.getJSONArray("array").getJSONObject(i);
-                            JSONObject stopJson = studentJson.getJSONObject("stop");
-
-                            BusStop tempStop = new BusStop(stopJson.getInt("busstopid"), stopJson.getInt("ridestopid"), stopJson.getString("gpsx"), stopJson.getString("gpsy"),
-                                    stopJson.getString("name"), stopJson.getString("note"));
-
-                            studentsList.add(new Student(studentJson.getString("name"), studentJson.getString("contactname"), studentJson.getString("photo"),
-                                    studentJson.getString("contactphone"), studentJson.getString("secondarycontactname"), studentJson.getString("secondarycontactphone"), tempStop, studentJson.getInt("ridesstudentid")));
-
-                        }
                     }
+                    else{
 
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                } catch (InvalidKeyException e) {
-                    e.printStackTrace();
+                        return new ArrayList<>();
+
+                    }
+                }
+                else{
+                    return getStudentList(connect, rideid);
                 }
 
-                return studentsList;
             }
         }.execute();
 
@@ -356,6 +248,7 @@ public class RideDetailsActivity extends AppCompatActivity {
             final ArrayList<Student> studentList = listStudent;
 
             rideDetailView.setOnItemClickListener(new OnItemClickListener() {
+                @Override
                 public void onItemClick(AdapterView<?> parent, View view,
                                         int position, long id) {
 
@@ -379,12 +272,223 @@ public class RideDetailsActivity extends AppCompatActivity {
                 }
             });
 
+            rideDetailView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+                @Override
+                public boolean onItemLongClick(AdapterView<?> parent, View view,
+                                               int position, long id) {
+
+                    Student value = (Student) parent.getItemAtPosition(position);
+
+                    final Dialog dialog = new Dialog(RideDetailsActivity.this);
+                    dialog.setContentView(R.layout.dialog_student_profile);
+                    dialog.setTitle(value.getName() + " Profile");
+
+                    // set the custom dialog components - text, image and button
+                    TextView lblName = (TextView) dialog.findViewById(R.id.lblStudentName);
+                    lblName.setText(value.getName());
+
+                    TextView lblFirstContactName = (TextView) dialog.findViewById(R.id.lblFirstContactName);
+                    lblFirstContactName.setText(value.getContactName());
+
+                    TextView lblFirstContactPhone = (TextView) dialog.findViewById(R.id.lblFirstContactPhone);
+                    String phone = value.getContactPhone().replaceAll(" ", "");
+                    if (phone.length() == 9)
+                        phone = "+420"+ phone;
+                    lblFirstContactPhone.setText(phone);
+
+                    TextView lblSecondaryContactName = (TextView) dialog.findViewById(R.id.lblSecondContactName);
+                    lblSecondaryContactName.setText(value.getSecondaryContactName());
+
+                    TextView lblSecondaryContactPhone = (TextView) dialog.findViewById(R.id.lblSecondContactPhone);
+                    phone = value.getSecondaryContactPhone().replaceAll(" ", "");
+                    if (phone.length() == 9)
+                        phone = "+420"+ phone;
+                    lblSecondaryContactPhone.setText(phone);
+
+                    ImageView image = (ImageView) dialog.findViewById(R.id.imgStudentProfile);
+                    image.setImageBitmap(value.getPhotoBitmap());;
+
+                    Button btnOK = (Button) dialog.findViewById(R.id.bntOK);
+                    // if button is clicked, close the custom dialog
+                    btnOK.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            dialog.dismiss();
+                        }
+                    });
+
+                    dialog.show();
+                    return true;
+                }
+            });
+
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (ExecutionException e) {
             e.printStackTrace();
         }
 
+
+
+    }
+
+    private List<Student> getStudentList(Connect connect, int rideid){
+
+        List<Student> studentsList = new ArrayList<>();
+
+        try {
+            BufferedWriter outToServer = new BufferedWriter(new OutputStreamWriter(connect.getClientSocket().getOutputStream()));
+            BufferedReader inFromServer = new BufferedReader(new InputStreamReader(connect.getClientSocket().getInputStream()));
+
+            JSONObject json = new JSONObject();
+
+            json.put("code", TransmissionCodes.REQUEST_RIDE_DETAILS);
+            json.put("rideid", rideid);
+
+            String send = TwoFish.encrypt(json.toString(), connect.getSessionKey());
+            send = send.replaceAll("(\\r|\\n)", "");
+
+            outToServer.write(send);
+            outToServer.newLine();
+            outToServer.flush();
+
+            String incString = inFromServer.readLine();
+
+            incString = TwoFish.decrypt(incString, connect.getSessionKey()).trim();
+
+            JSONObject recievedJSON = new JSONObject(incString);
+
+            if(recievedJSON.getInt("code") == TransmissionCodes.RESPONCE_RIDE_DETAILS){
+
+                for (int i = 0; i < recievedJSON.getJSONArray("array").length(); i++){
+
+                    JSONObject studentJson = recievedJSON.getJSONArray("array").getJSONObject(i);
+                    JSONObject stopJson = studentJson.getJSONObject("stop");
+
+                    BusStop tempStop = new BusStop(stopJson.getInt("busstopid"), stopJson.getInt("ridestopid"), stopJson.getString("gpsx"), stopJson.getString("gpsy"),
+                            stopJson.getString("name"), stopJson.getString("note"));
+
+                    studentsList.add(new Student(studentJson.getString("name"), studentJson.getString("contactname"), studentJson.getString("photo"),
+                            studentJson.getString("contactphone"), studentJson.getString("secondarycontactname"), studentJson.getString("secondarycontactphone"), tempStop, studentJson.getInt("ridesstudentid")));
+
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
+        }
+
+        return studentsList;
+
+    }
+
+    private void sendLocationToServer(Connect connect, Location location, int rideid){
+
+        try {
+
+            JSONObject sendJson = new JSONObject();
+            JSONObject localtionJSON = new JSONObject();
+
+            BufferedWriter outToServer = new BufferedWriter(new OutputStreamWriter(connect.getClientSocket().getOutputStream()));
+
+            sendJson.put("code", TransmissionCodes.GPS_UPDATE);
+            localtionJSON.put("gpsx", String.valueOf(location.getLatitude()));
+            localtionJSON.put("gpsy", String.valueOf(location.getLongitude()));
+            localtionJSON.put("rideid", rideid);
+            sendJson.put("location", localtionJSON);
+
+            String send = TwoFish.encrypt(sendJson.toString(), connect.getSessionKey());
+            send = send.replaceAll("(\\r|\\n)", "");
+
+            outToServer.write(send);
+            outToServer.newLine();
+            outToServer.flush();
+
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            try {
+                connect.getClientSocket().close();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+            e.printStackTrace();
+        }
+
+
+    }
+
+    private Boolean saveRideDetailsOnServer(Connect connect, int rideid){
+
+        try {
+            BufferedWriter outToServer = new BufferedWriter(new OutputStreamWriter(connect.getClientSocket().getOutputStream()));
+            BufferedReader inFromServer = new BufferedReader(new InputStreamReader(connect.getClientSocket().getInputStream()));
+
+            JSONObject json = new JSONObject();
+
+            json.put("code", TransmissionCodes.RIDE_DETAILS_UPDATE);
+            json.put("rideid", rideid);
+
+            List<JSONObject> studentsToSend = new ArrayList<>();
+
+            for (Student student : listStudent){
+
+                JSONObject tempJSON = new JSONObject();
+                tempJSON.put("ridesstudentid", student.getRidesStudentid());
+                if(student.getSelected())
+                    tempJSON.put("ridestatus", 0);
+                else
+                    tempJSON.put("ridestatus", 2);
+
+                studentsToSend.add(tempJSON);
+
+            }
+
+            JSONArray array = new JSONArray(studentsToSend);
+
+            json.put("array", array);
+
+            String send = TwoFish.encrypt(json.toString(), connect.getSessionKey());
+            send = send.replaceAll("(\\r|\\n)", "");
+
+            outToServer.write(send);
+            outToServer.newLine();
+            outToServer.flush();
+
+            String incString = inFromServer.readLine();
+
+            incString = TwoFish.decrypt(incString, connect.getSessionKey()).trim();
+
+            JSONObject recievedJSON = new JSONObject(incString);
+
+            if(recievedJSON.getInt("code") == TransmissionCodes.RIDE_DETAILS_CONFIRMATION){
+
+                return true;
+            }
+
+        } catch (IOException e) {
+            try {
+                connect.getClientSocket().close();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+            e.printStackTrace();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
+        }
+
+        return false;
 
 
     }
